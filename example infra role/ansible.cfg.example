@@ -1,0 +1,40 @@
+[defaults]
+roles_path = roles_galaxy:roles_community:roles
+inventory = environments
+vault_password_file = .vault_pass.txt
+display_skipped_hosts = False
+host_key_checking = False
+retry_files_enabled = False # Do not create them
+forks = 20
+remote_user = max
+callbacks_enabled = timer, profile_tasks, profile_roles
+#interpreter_python = /usr/bin/python
+
+
+[ssh_connection]
+pipelining = true
+ServerAliveInterval = 30
+
+[diff]
+always = True
+context = 5
+
+
+[privilege_escalation]
+become_ask_pass = True
+
+[colors]
+#highlight = white
+#verbose = blue
+verbose = green
+#warn = bright purple
+#error = red
+#debug = dark gray
+#deprecate = purple
+#skip = cyan
+#unreachable = red
+#ok = green
+#changed = yellow
+#diff_add = green
+diff_remove = bright red
+#diff_lines = cyan

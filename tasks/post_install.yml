@@ -1,0 +1,26 @@
+---
+- name: Stop cassandra service
+  service:
+    name: cassandra
+    state: stopped
+
+- name: Start cassandra service
+  service:
+    name: cassandra
+    state: started
+    enabled: yes
+
+- name: Wait 120 seconds for port 9042 to become open on the host, dont start checking for 10 seconds
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: "9042"
+    timeout: 120
+    delay: 10
+
+- name: nodetool status
+  shell: nodetool status
+  register: node_status
+  tags: skip_ansible_lint
+
+- debug:
+    var: node_status

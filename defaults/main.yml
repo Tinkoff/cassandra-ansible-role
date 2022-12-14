@@ -1,0 +1,614 @@
+---
+cassandra_version: 3.11.7
+
+# Username and password for
+superuser_name: "cassandra"
+superuser_password: "cassandra"
+
+cassandra_role_request_timeout: 60000 #in ms
+
+cassandra_root_directory: "/opt/cassandra"
+data_file_directories: "{{ cassandra_root_directory }}/data"
+hints_directory: "{{ cassandra_root_directory }}/hints"
+commitlog_directory: "{{ cassandra_root_directory }}/data/commitlog"
+saved_caches_directory: "{{ cassandra_root_directory }}/data/saved_caches"
+
+# default cron compact command
+cassandra_compact_cron_cmd: "/usr/bin/nodetool compact"
+
+# Maximum memory to use for sstable chunk cache and buffer pooling.
+file_cache_size_in_mb:
+
+# Specify the way Cassandra allocates and manages memtable memory.
+#memtable_allocation_type:
+
+jmx_port: "8000"
+
+## Change log format output to json
+logs_in_json: false
+
+## cassandra log level
+
+root_log_level: "INFO"
+com_thinkaurelius_thrift: "ERROR"
+org_apache_cassandra: "DEBUG"
+
+## cassandra.yaml
+
+# port for the CQL native transport to listen for clients on
+# For security reasons, you should not expose this port to the internet.  Firewall it if needed.
+native_transport_port: 9042
+
+# Set to true to have Cassandra create a hard link to each sstable
+# flushed or streamed locally in a backups/ subdirectory of the
+# keyspace data.  Removing these links is the operator's
+# responsibility.
+incremental_backups: false
+
+# How long the coordinator should wait for read operations to complete
+read_request_timeout_in_ms: 5000
+
+# How long the coordinator should wait for seq or index scans to complete
+range_request_timeout_in_ms: 10000
+
+# How long the coordinator should wait for writes to complete
+write_request_timeout_in_ms: 10000
+
+# How long the coordinator should wait for counter writes to complete
+counter_write_request_timeout_in_ms: 5000
+
+# How long a coordinator should continue to retry a CAS operation
+# that contends with other proposals for the same row
+cas_contention_timeout_in_ms: 1000
+
+# How long the coordinator should wait for truncates to complete
+# (This can be much longer, because unless auto_snapshot is disabled
+# we need to flush first so we can snapshot before removing the data.)
+truncate_request_timeout_in_ms: 60000
+
+# The default timeout for other, miscellaneous operations
+request_timeout_in_ms: 10000
+
+# Maximum size of the native protocol prepared statement cache
+#
+# Valid values are either "auto" (omitting the value) or a value greater 0.
+#
+# Note that specifying a too large value will result in long running GCs and possbily
+# out-of-memory errors. Keep the value at a small fraction of the heap.
+#
+# If you constantly see "prepared statements discarded in the last minute because
+# cache limit reached" messages, the first step is to investigate the root cause
+# of these messages and check whether prepared statements are used correctly -
+# i.e. use bind markers for variable parts.
+#
+# Do only change the default value, if you really have more prepared statements than
+# fit in the cache. In most cases it is not neccessary to change this value.
+# Constantly re-preparing statements is a performance penalty.
+#
+# Default value ("auto") is 1/256th of the heap or 10MB, whichever is greater
+prepared_statements_cache_size_mb:
+
+#Heapdump enabled by default
+enable_heapdump: true
+
+# The size of the individual commitlog file segments.  A commitlog
+# segment may be archived, deleted, or recycled once all the data
+# in it (potentially from each columnfamily in the system) has been
+# flushed to sstables.
+#
+# The default size is 32, which is almost always fine, but if you are
+# archiving commitlog segments (see commitlog_archiving.properties),
+# then you probably want a finer granularity of archiving; 8 or 16 MB
+# is reasonable.
+# Max mutation size is also configurable via max_mutation_size_in_kb setting in
+# cassandra.yaml. The default is half the size commitlog_segment_size_in_mb * 1024.
+#
+# NOTE: If max_mutation_size_in_kb is set explicitly then commitlog_segment_size_in_mb must
+# be set to at least twice the size of max_mutation_size_in_kb / 1024
+#
+commitlog_segment_size_in_mb: 32
+
+# Number of simultaneous compactions to allow, NOT including
+# validation "compactions" for anti-entropy repair.  Simultaneous
+# compactions can help preserve read performance in a mixed read/write
+# workload, by mitigating the tendency of small sstables to accumulate
+# during a single long running compactions. The default is usually
+# fine and if you experience problems with compaction running too
+# slowly or too fast, you should look at
+# compaction_throughput_mb_per_sec first.
+#
+# concurrent_compactors defaults to the smaller of (number of disks,
+# number of cores), with a minimum of 2 and a maximum of 8.
+#
+# If your data directories are backed by SSD, you should increase this
+# to the number of cores.
+concurrent_compactors: 2
+
+# Throttles compaction to the given total throughput across the entire
+# system. The faster you insert data, the faster you need to compact in
+# order to keep the sstable count down, but in general, setting this to
+# 16 to 32 times the rate you are inserting data is more than sufficient.
+# Setting this to 0 disables throttling. Note that this account for all types
+# of compaction, including validation compaction.
+#compaction_throughput_mb_per_sec: 
+
+# Policy for data disk failures:
+#
+# die
+#   shut down gossip and client transports and kill the JVM for any fs errors or
+#   single-sstable errors, so the node can be replaced.
+#
+# stop_paranoid
+#   shut down gossip and client transports even for single-sstable errors,
+#   kill the JVM for errors during startup.
+#
+# stop
+#   shut down gossip and client transports, leaving the node effectively dead, but
+#   can still be inspected via JMX, kill the JVM for errors during startup.
+#
+# best_effort
+#    stop using the failed disk and respond to requests based on
+#    remaining available sstables.  This means you WILL see obsolete
+#    data at CL.ONE!
+#
+# ignore
+#    ignore fatal errors and let requests fail, as in pre-1.2 Cassandra
+disk_failure_policy: stop
+
+# concurrent_reads
+# (Default: 32)
+# Workloads with more data than can fit in memory encounter a bottleneck in fetching data
+# from disk during reads. Setting concurrent_reads to (16 × number_of_drives) allows operations
+# to queue low enough in the stack so that the OS and drives can reorder them.
+# The default setting applies to both logical volume managed (LVM) and RAID drives.
+concurrent_reads: 32
+
+# concurrent_writes
+# (Default: 32)
+# Writes in Cassandra are rarely I/O bound, so the ideal number of concurrent writes depends on
+# the number of CPU cores on the node. The recommended value is 8 × number_of_cpu_cores.
+concurrent_writes: 32
+
+# concurrent_counter_writes
+# (Default: 32)
+# Counter writes read the current values before incrementing and writing them back.
+# The recommended value is (16 × number_of_drives).
+concurrent_counter_writes: 32
+
+# concurrent_materialized_view_writes
+# (Default: 32)
+# Limit on the number of concurrent materialized view writes. Set this to the lesser
+# of concurrent reads or concurrent writes, because there is a read involved in each materialized view write.
+concurrent_materialized_view_writes: 32
+
+# auto_snapshot
+# (Default: true)
+# Enables snapshots of the data before truncating a keyspace or dropping a table.
+# To prevent data loss, DataStax strongly advises using the default setting.
+# If you set auto_snapshot to false, you lose data on truncation or drop.
+auto_snapshot: true
+
+# snapshot_before_compaction
+# (Default: false)
+# Backs up data updated since the last snapshot was taken. When enabled,
+# Cassandra creates a hard link to each SSTable flushed or streamed locally in a backups subdirectory
+# of the keyspace data. Removing these links is the operator's responsibility.
+# Mostly useful if you're paranoid when there is a data format change.
+snapshot_before_compaction: false
+
+# max_hint_window_in_ms
+# (Default: 10800000 milliseconds [3 hours])
+# Maximum amount of time during which Cassandra generates hints for an unresponsive node.
+# After this interval, Cassandra does not generate any new hints for the node until it is back up and responsive.
+# If the node goes down again, Cassandra starts a new interval. This setting can prevent a sudden demand for resources
+# when a node is brought back online and the rest of the cluster attempts to replay a large volume of hinted writes.
+# https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/architecture/archDataDistributeFailDetect.html
+max_hint_window_in_ms: 10800000 # 3 hours
+
+# hinted_handoff_throttle_in_kb
+# (Default: 1024)
+# Maximum throttle in KBs per second, per delivery thread.  This will be
+# reduced proportionally to the number of nodes in the cluster.  (If there
+# are two nodes in the cluster, each delivery thread will use the maximum
+# rate; if there are three, each will throttle to half of the maximum,
+# since we expect two nodes to be delivering hints simultaneously.)
+# Note: When applying this limit, Cassandra computes the hint transmission rate based on the uncompressed hint size,
+# even if internode_compression or hints_compression is enabled.
+hinted_handoff_throttle_in_kb: 1024
+
+# max_hints_delivery_threads
+# (Default: 2)
+# Number of threads Cassandra uses to deliver hints. In multiple data-center deployments,
+# consider increasing this number because cross data-center handoff is generally slower.
+max_hints_delivery_threads: 2
+
+# hints_flush_period_in_ms
+# (Default: 10000)
+# The number of milliseconds Cassandra waits before flushing hints from internal buffers to disk.
+# Will *not* trigger fsync.
+hints_flush_period_in_ms: 10000
+
+# max_hints_file_size_in_mb
+# (Default: 128)
+# The maximum size for a single hints file, in megabytes.
+max_hints_file_size_in_mb: 128
+
+# batchlog_replay_throttle_in_kb
+# (Default: 1024KB per second
+# Total maximum throttle for replaying hints. Throttling is reduced proportionally to the number of nodes in the cluster.
+batchlog_replay_throttle_in_kb: 1024
+
+# roles_validity_in_ms
+# (Default: 2000)
+# Fetching permissions can be an expensive operation depending on the authorizer,
+# so this setting allows flexibility. Validity period for roles cache; set to 0 to disable.
+# Granted roles are cached for authenticated sessions in AuthenticatedUser and after the period specified here,
+# become eligible for (async) reload. Disabled automatically for AllowAllAuthenticator.
+roles_validity_in_ms: 2000
+
+# permissions_validity_in_ms
+# (Default: 2000)
+# How many milliseconds permissions in cache remain valid. Depending on the authorizer, such as CassandraAuthorizer,
+# fetching permissions can be resource intensive. This setting is disabled when set to 0 or when AllowAllAuthorizer is set.
+# https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/configuration/secureObjectPerms.html
+permissions_validity_in_ms: 2000
+
+# credentials_validity_in_ms
+# (Default: 2000) How many milliseconds credentials in the cache remain valid.
+# This cache is tightly coupled to the provided PasswordAuthenticator implementation of IAuthenticator.
+# If another IAuthenticator implementation is configured, Cassandra does not use this cache, and these settings have no effect.
+# Set to 0 to disable.
+# Related information:
+# Internal authentication - https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/configuration/secureInternalAuthenticationTOC.html
+# Internal authorization - https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/configuration/secureInternalAuthorizationTOC.html
+# Note: Credentials are cached in encrypted form.
+# This may cause a performance penalty that offsets the reduction in latency gained by caching.
+credentials_validity_in_ms: 2000
+
+# commit_failure_policy
+# (Default: stop)
+# Policy for commit disk failures:
+#
+# die
+#   shut down gossip and Thrift and kill the JVM, so the node can be replaced.
+#
+# stop
+#   shut down gossip and Thrift, leaving the node effectively dead, but
+#   can still be inspected via JMX.
+#
+# stop_commit
+#   shutdown the commit log, letting writes collect but
+#   continuing to service reads, as in pre-2.0.5 Cassandra
+#
+# ignore
+#   ignore fatal errors and let the batches fail
+commit_failure_policy: stop
+
+# thrift_prepared_statements_cache_size_mb
+# # (Default: empty - auto)
+# Maximum size of the Thrift prepared statement cache
+# If you do not use Thrift at all, it is safe to leave this value at "auto".
+# See description of 'prepared_statements_cache_size_mb' above for more information.
+# Default value ("auto") is 1/256th of the heap or 10MB, whichever is greater
+thrift_prepared_statements_cache_size_mb:
+
+# key_cache_size_in_mb
+# (Default: empty - auto)
+# Maximum size of the key cache in memory.
+# Each key cache hit saves 1 seek and each row cache hit saves 2 seeks at the
+# minimum, sometimes more. The key cache is fairly tiny for the amount of
+# time it saves, so it's worthwhile to use it at large numbers.
+# The row cache saves even more time, but must contain the entire row,
+# so it is extremely space-intensive. It's best to only use the
+# row cache if you have hot rows or static rows.
+# NOTE: if you reduce the size, you may not get you hottest keys loaded on startup.
+# Related information:
+# setcachecapacity - https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/tools/toolsSetCacheCapacity.html
+# Enabling and configuring caching - https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/operations/opsSetCaching.html
+# Default value is empty to make it "auto" (min(5% of Heap (in MB), 100MB)). Set to 0 to disable key cache.
+key_cache_size_in_mb:
+
+# key_cache_save_period
+# (Default: 14400 seconds [4 hours])
+# Duration in seconds that keys are kept in cache. Caches are saved to saved_caches_directory.
+# Saved caches greatly improve cold-start speeds and have relatively little effect on I/O.
+key_cache_save_period: 14400 # 4 hours
+
+# row_cache_size_in_mb
+# (Default: 0 - disabled)
+# Maximum size of the row cache in memory. The row cache can save more time than key_cache_size_in_mb,
+# but it is space-intensive because it contains the entire row. Use the row cache only for hot rows or static rows.
+# If you reduce the size, you may not get you hottest keys loaded on start up.
+row_cache_size_in_mb: 0
+
+# row_cache_save_period
+# (Default: 0 - disabled)
+# The number of seconds that rows are kept in cache. Caches are saved to saved_caches_directory.
+# This setting has limited use as described in row_cache_size_in_mb.
+row_cache_save_period: 0
+
+# counter_cache_size_in_mb
+# (Default: empty - auto)
+# Maximum size of the counter cache in memory.
+# Counter cache helps to reduce counter locks' contention for hot counter cells.
+# In case of RF = 1 a counter cache hit will cause Cassandra to skip the read before
+# write entirely. With RF > 1 a counter cache hit will still help to reduce the duration
+# of the lock hold, helping with hot counter cell updates, but will not allow skipping
+# the read entirely. Only the local (clock, count) tuple of a counter cell is kept
+# in memory, not the whole counter, so it's relatively cheap.
+# NOTE: if you reduce the size, you may not get you hottest keys loaded on startup.
+# Default value is empty to make it "auto" (min(2.5% of Heap (in MB), 50MB)). Set to 0 to disable counter cache.
+# NOTE: if you perform counter deletes and rely on low gcgs, you should disable the counter cache.
+#counter_cache_size_in_mb:
+
+# counter_cache_save_period
+# (Default: 7200 seconds [2 hours])
+# Duration in seconds after which Cassandra should
+# save the counter cache (keys only). Caches are saved to saved_caches_directory as
+# specified in this configuration file.
+counter_cache_save_period: 7200 # 2 hours
+
+# disk_optimization_strategy
+# (Default: ssd)
+# The strategy for optimizing disk reads. Possible values: ssd or spinning.
+disk_optimization_strategy: ssd
+
+# Default: auto.
+#disk_access_mode:
+
+# commitlog_total_space_in_mb
+# (Default: 32MB for 32-bit JVMs, 8192MB for 64-bit JVMs)
+# Total space used for commit logs. If the total space used by all commit logs goes above this value,
+# Cassandra rounds up to the next nearest segment multiple and flushes memtables to disk for the oldest commitlog segments,
+# removing those log segments from the commit log. This reduces the amount of data to replay on start-up,
+# and prevents infrequently-updated tables from keeping commitlog segments indefinitely.
+# If the commitlog_total_space_in_mb is small, the result is more flush activity on less-active tables.
+# Related information:
+# Configuring memtable thresholds - https://docs.datastax.com/en/cassandra-oss/3.x/cassandra/operations/opsMemtableThruput.html
+commitlog_total_space_in_mb: 8192
+
+# index_summary_capacity_in_mb
+# (Default: empty - 5% of the heap size)
+# Fixed memory pool size in MB for SSTable index summaries.
+# If the memory usage of all index summaries exceeds this limit, any SSTables with low read rates shrink their index summaries
+# to meet this limit. This is a best-effort process. In extreme conditions, Cassandra may use more than this amount of memory.
+index_summary_capacity_in_mb:
+
+# index_summary_resize_interval_in_minutes
+# (Default: 60 minutes)
+# How frequently index summaries should be resampled.  This is done
+# periodically to redistribute memory from the fixed-size pool to sstables
+# proportional their recent read rates.  Setting to -1 will disable this
+# process, leaving existing index summaries at their current sampling level.
+index_summary_resize_interval_in_minutes: 60
+
+# trickle_fsync
+# (Default: false)
+# When set to true, causes fsync to force the operating system to flush the dirty buffers at the set interval trickle_fsync_interval_in_kb.
+# Enable this parameter to prevent sudden dirty buffer flushing from impacting read latencies.
+# Recommended for use with SSDs, but not with HDDs.
+trickle_fsync: false
+
+# trickle_fsync_interval_in_kb
+# (Default: 10240)
+# The size of the fsync in kilobytes.
+trickle_fsync_interval_in_kb: 10240
+
+# column_index_size_in_kb
+# (Default: 64)
+# Granularity of the index of rows within a partition. For huge rows, decrease this setting to improve seek time.
+# If you use key cache, be careful not to make this setting too large because key cache will be overwhelmed.
+# If you're unsure of the size of the rows, it's best to use the default setting.
+column_index_size_in_kb: 64
+
+# column_index_cache_size_in_kb
+# (Default: 2)
+# A threshold for the total size of all index entries for a partition that Cassandra stores in the partition key cache.
+# If the total size of all index entries for a partition exceeds this amount, Cassandra stops putting entries for this partition into the partition key cache.
+# This limitation prevents index entries from large partitions from taking up all the space in the partition key cache (which is controlled by key_cache_size_in_mb).
+column_index_cache_size_in_kb: 2
+
+# sstable_preemptive_open_interval_in_mb
+# (Default: 50MB)
+# The compaction process opens SSTables before they are completely written and uses them in place of the prior SSTables for any range previously written.
+# This setting helps to smoothly transfer reads between the SSTables by reducing page cache churn and keeps hot rows hot.
+sstable_preemptive_open_interval_in_mb: 50
+
+# stream_throughput_outbound_megabits_per_sec
+# (Default: 200 Mbps)
+# note Throttle for the throughput of all outbound streaming file transfers on a node.
+# Cassandra does mostly sequential I/O when streaming data during bootstrap or repair.
+# This can saturate the network connection and degrade client (RPC) performance.
+stream_throughput_outbound_megabits_per_sec: 200
+
+# inter_dc_stream_throughput_outbound_megabits_per_sec
+# (Default: 200 Mbps)
+# Throttle for all streaming file transfers between datacenters, and for network stream traffic as configured with stream_throughput_outbound_megabits_per_sec.
+inter_dc_stream_throughput_outbound_megabits_per_sec: 200
+
+# dynamic_snitch_update_interval_in_ms
+# (Default: 100 milliseconds)
+# The number of milliseconds between Cassandra's calculation of node scores.
+# Because score calculation is CPU intensive, be careful when reducing this interval.
+dynamic_snitch_update_interval_in_ms: 100
+
+# dynamic_snitch_reset_interval_in_ms
+# (Default: 600000 milliseconds)
+# Time interval after which Cassandra resets all node scores. This allows a bad node to recover.
+dynamic_snitch_reset_interval_in_ms: 600000
+
+# dynamic_snitch_badness_threshold
+# (Default: 0.1)
+# The performance threshold for dynamically routing client requests away from a poorly performing node.
+# Specifically, it controls how much worse a poorly performing node has to be before the dynamic snitch prefers other replicas over it.
+# A value of 0.2 means Cassandra continues to prefer the static snitch values until the node response time is 20% worse than the best performing node.
+# Until the threshold is reached, incoming requests are statically routed to the closest replica (as determined by the snitch).
+# A value greater than zero for this parameter, with a value of less than 1.0 for read_repair_chance, maximizes cache capacity across the nodes.
+dynamic_snitch_badness_threshold: 0.1
+
+# internode_compression
+# (Default: all)
+# Controls whether traffic between nodes is compressed. Valid values:
+# all - Compresses all traffic.
+# dc - Compresses traffic between datacenters only.
+# none - No compression.
+internode_compression: dc
+
+# inter_dc_tcp_nodelay
+# (Default: false)
+# Enable this property or disable tcp_nodelay for inter-datacenter communication.
+# If this property is disabled, the network sends larger, but fewer, network packets.
+# This reduces overhead from the TCP protocol itself. However, disabling inter_dc_tcp_nodelay may increase latency by blocking cross data-center responses.
+inter_dc_tcp_nodelay: false
+
+# tracetype_query_ttl
+# (Default: 86400)
+# TTL for different trace types used during logging of the query process
+tracetype_query_ttl: 86400
+
+# tracetype_repair_ttl
+# (Default: 604800)
+# TTL for different trace types used during logging of the repair process.
+tracetype_repair_ttl: 604800
+
+# enable_user_defined_functions
+# (Default: false)
+# User defined functions (UDFs) present a security risk, since they are executed on the server side.
+# In Cassandra 3.0 and later, UDFs are executed in a sandbox to contain the execution of malicious code. They are disabled by default.
+enable_user_defined_functions: true
+
+# enable_scripted_user_defined_functions
+# (Default: false)
+# Java UDFs are always enabled, if enable_user_defined_functions is true.
+# Enable this option to use UDFs with language javascript or any custom JSR-223 provider.
+# This option has no effect if enable_user_defined_functions is false.
+enable_scripted_user_defined_functions: true
+
+# windows_timer_interval
+# (Default: 1)
+# The default Windows kernel timer and scheduling resolution is 15.6ms for power conservation.
+# Lowering this value on Windows can provide much tighter latency and better throughput.
+# However, some virtualized environments may see a negative performance impact from changing this setting below the system default.
+# The sysinternals clockres tool can confirm your system's default setting.
+windows_timer_interval: 1
+
+# tombstone_warn_threshold
+# (Default: 1000)
+# Cassandra issues a warning if a query scans more than this number of tombstones.
+tombstone_warn_threshold: 1000
+
+# tombstone_failure_threshold
+# (Default: 100000)
+# Cassandra aborts a query if it scans more than this number of tombstones.
+tombstone_failure_threshold: 100000
+
+# batch_size_warn_threshold_in_kb
+# (Default: 5KB per batch)
+# Causes Cassandra to log a WARN message when any batch size exceeds this value in kilobytes.
+# CAUTION: Increasing this threshold can lead to node instability.
+batch_size_warn_threshold_in_kb: 5
+
+# batch_size_fail_threshold_in_kb
+# (Default: 50KB per batch)
+# Cassandra fails any batch whose size exceeds this setting. The default value is 10X the value of batch_size_warn_threshold_in_kb.
+batch_size_fail_threshold_in_kb: 50
+
+# unlogged_batch_across_partitions_warn_threshold
+# (Default: 10partitions per batch)
+# Causes Cassandra to log a WARN message on any batches not of type LOGGED that span across more partitions than this limit. The default value is 10 partitions.
+unlogged_batch_across_partitions_warn_threshold: 10
+
+# compaction_large_partition_warning_threshold_mb
+# (Default: 100)
+# Cassandra logs a warning when compacting partitions larger than the set value.
+compaction_large_partition_warning_threshold_mb: 100
+
+# gc_warn_threshold_in_ms
+# (Default: 1000)
+# Any GC pause longer than this interval is logged at the WARN level. (By default, Cassandra logs any GC pause greater than 200 ms at the INFO level.)
+gc_warn_threshold_in_ms: 1000
+
+# This sets the amount of memtable flush writer threads.  These will
+# be blocked by disk io, and each one will hold a memtable in memory
+# while blocked.
+#
+# memtable_flush_writers defaults to one per data_file_directory.
+#
+# If your data directories are backed by SSD, you can increase this, but
+# avoid having memtable_flush_writers * data_file_directories > number of cores
+#memtable_flush_writers: 
+
+# The maximum threads for handling requests when the native transport is used.
+# This is similar to rpc_max_threads though the default differs slightly (and
+# there is no native_transport_min_threads, idle threads will always be stopped
+# after 30 seconds).
+#native_transport_max_threads:
+
+cassandra_reaper:
+  autoschedule_repair: false
+  hostname: hostname
+  port: 8080
+  protocol: http
+  username: username
+  password: password
+  cluster_name: cluster_name
+  settings:
+    segment_count_per_node: 16
+    intensity: 1
+    incremental_repair: false
+    schedule_days_between: 7
+    repair_thread_count: 4
+    repair_parallelism: DATACENTER_AWARE
+    owner: manageb_by_ansible
+
+# Cassandra medusa
+cassandra_medusa_version: "0.13.4"
+
+# Medusa config dir
+medusa_config_dir: "/etc/medusa"
+medusa_log_dir: "/var/log/medusa"
+medusa_credentials_file: "{{medusa_config_dir}}/credentials"
+
+# Set your configuration in the var below.
+medusa_config:
+  storage:
+    use_sudo_for_restore: false
+    storage_provider: "s3_compatible"
+    bucket_name: "backup-{{ cluster_name }}-medusa"
+    key_file: "{{ medusa_config_dir }}/credentials"
+    prefix: "{{ cluster_name }}"
+    max_backup_age: 4
+    max_backup_count: 4
+    backup_grace_period_in_days: 10
+    host: "s3.custom-s3.com"
+    port: "443"
+    secure: true
+    transfer_max_bandwidth: 50MB/s
+    concurrent_transfers: 5
+    multi_part_upload_threshold: 104857600
+  cassandra:
+    use_sudo: false
+    cql_username: cassandra
+    cql_password: cassandra
+    resolve_ip_addresses: false
+  grpc:
+    enabled: false
+  logging:
+    enabled: true
+    file: "{{ medusa_log_dir }}/medusa.log"
+    level: DEBUG
+    maxBytes: 20000000
+    backupCount: 5
+
+medusa_upload_credentials: true
+medusa_credentials:
+  aws_access_key_id: "xxx"
+  aws_secret_access_key: "yyy"
+
+# Time backup informer
+time_channel: "null"
+
+# Will never log these fields
+medusa_config_no_log:
+  cassandra:
+    cql_password

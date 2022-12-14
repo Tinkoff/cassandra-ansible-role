@@ -1,0 +1,20 @@
+---
+- name: Ensure cassandra started
+  systemd:
+    name: cassandra
+    state: started
+
+- name: Present or Absent users
+  cassandra_users_manage:
+    users_dict: "{{ cassandra_users_manage }}"
+    login_hosts: "{{ login_hosts | default(ansible_default_ipv4.address) }}"
+    login_port: "{{ cassandra_port | default('9042') }}"
+  run_once: true
+
+- name: Present permissions to groups
+  cassandra_users_permissions:
+    users_permissions_dict: "{{ cassandra_users_permissions }}"
+    users_dict: "{{ cassandra_users_manage }}"
+    login_hosts: "{{ login_hosts | default(ansible_default_ipv4.address) }}"
+    login_port: "{{ cassandra_port | default('9042') }}"
+  run_once: true

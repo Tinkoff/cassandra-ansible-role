@@ -1,0 +1,56 @@
+---
+- name: Installing libraries for json logs format
+  get_url:
+    url: "https://report-jar.domain.com/repository/dist/cassandra/json-logs/{{ item }}"
+    dest: /usr/share/cassandra/lib/
+  with_items:
+    - logback-jackson-0.1.5.jar
+    - logback-json-classic-0.1.5.jar
+    - logback-json-core-0.1.5.jar
+  when: logs_in_json
+
+- assert:
+    that: root_log_level in ['ALL', 'TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'OFF']
+    fail_msg: "root_log_level must be one of that [ALL, TRACE, DEBUG, INFO, WARN, ERROR, OFF]"
+
+- assert:
+    that: com_thinkaurelius_thrift in ['ALL', 'TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'OFF']
+    fail_msg: "com_thinkaurelius_thrift must be one of that [ALL, TRACE, DEBUG, INFO, WARN, ERROR, OFF]"
+
+- assert:
+    that: org_apache_cassandra in ['ALL', 'TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'OFF']
+    fail_msg: "org_apache_cassandra must be one of that [ALL, TRACE, DEBUG, INFO, WARN, ERROR, OFF]"
+
+- name: get current log levels
+  command: "nodetool getlogginglevels"
+  register: cassandra_logging_levels
+  tags: skip_ansible_lint
+  changed_when: false
+  ignore_errors: true
+
+- name: set root_log_level
+  set_fact:
+    root_log_level: '{{root_log_level | default("INFO") | upper}}'
+
+- name: system_auth keyspace replication fix 1
+  command: "nodetool setlogginglevel ROOT {{ root_log_level }}"
+  tags: skip_ansible_lint
+  when: not cassandra_logging_levels.stdout|regex_search('ROOT +' + root_log_level, multiline=True, ignorecase=True)
+
+- name: set com_thinkaurelius_thrift
+  set_fact:
+    com_thinkaurelius_thrift: '{{com_thinkaurelius_thrift | default("ERROR") | upper}}'
+
+- name: system_auth keyspace replication fix 2
+  command: "nodetool setlogginglevel com.thinkaurelius.thrift {{ com_thinkaurelius_thrift }}"
+  tags: skip_ansible_lint
+  when: not cassandra_logging_levels.stdout|regex_search('com.thinkaurelius.thrift +' + com_thinkaurelius_thrift, multiline=True, ignorecase=True)
+
+- name: set org_apache_cassandra
+  set_fact:
+    org_apache_cassandra: '{{org_apache_cassandra | default("DEBUG") | upper}}'
+
+- name: system_auth keyspace replication fix 3
+  command: "nodetool setlogginglevel org.apache.cassandra {{ org_apache_cassandra }}"
+  tags: skip_ansible_lint
+  when: not cassandra_logging_levels.stdout|regex_search('org.apache.cassandra +' + org_apache_cassandra, multiline=True, ignorecase=True)

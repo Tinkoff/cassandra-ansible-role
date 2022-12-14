@@ -1,0 +1,62 @@
+---
+- name: Set datacenters var
+  set_fact:
+    datacenters: "{{ ansible_play_hosts | map('extract', hostvars, ['dc']) | list }}"
+
+- name: Set datacenters_unique var
+  set_fact:
+    datacenters_unique: "{{ datacenters | unique }}"
+
+- name: Create datacenters dict with keys
+  set_fact:
+    datacenters_dict: "{{ datacenters_dict|default({}) | combine( {item: 0} ) }}"
+  with_items: "{{ datacenters_unique }}"
+
+- name: fill datacenters_dict
+  set_fact:
+    datacenters_dict: "{{ datacenters_dict | combine(new_item, recursive=true) }}"
+  vars:
+    new_item: "{ '{{ item }}' : '{{ datacenters_dict[item] | default(0) | int + 1 | int }}' }"
+  with_items: "{{ datacenters }}"
+
+- name: set empty var
+  set_fact: datacenters_var=""
+
+- name: conevrt dict to var
+  set_fact:
+    datacenters_var: "{{datacenters_var}}, '{{item.key}}' : {{item.value}}"
+  with_dict: "{{ datacenters_dict }}"
+  
+- name: Wait 300 seconds for port 9042 to become open on the host, dont start checking for 10 seconds
+  wait_for:
+    host: "{{ ansible_default_ipv4.address }}"
+    port: 9042
+    timeout: 300
+    delay: 10
+
+- name: system_auth keyspace replication fix
+  command: "cqlsh --request-timeout=60 -u {{ superuser_name | default('cassandra') }} -p {{ superuser_password | default('cassandra') }} -e \"SELECT replication FROM system_schema.keyspaces WHERE keyspace_name='system_auth';\" {{ ansible_default_ipv4.address }}"
+  register: cassandra_keyspace_replica_class
+  tags: skip_ansible_lint
+  run_once: true
+  changed_when: false
+  ignore_errors: true
+  no_log: true
+
+- debug:
+    msg:
+    - "Stdout: {{ cassandra_keyspace_replica_class.stdout }}"
+    - "Stderr: {{ cassandra_keyspace_replica_class.stderr }}"
+
+- name: system_auth keyspace replication fix
+  command: "cqlsh --request-timeout=60 -u {{ superuser_name | default('cassandra') }} -p {{ superuser_password | default('cassandra') }} -e \"ALTER KEYSPACE \"system_auth\" WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy' {{ datacenters_var }} };\" {{ ansible_default_ipv4.address }}"
+  tags: skip_ansible_lint
+  register: system_auth_keyspace
+  run_once: true
+  when: '"SimpleStrategy" in cassandra_keyspace_replica_class.stdout'
+
+- name: system_auth keyspace replication repair
+  command: "nodetool repair system_auth"
+  tags: skip_ansible_lint
+  run_once: true
+  when: system_auth_keyspace.changed

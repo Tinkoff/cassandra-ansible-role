@@ -1,0 +1,35 @@
+[cassandra:children]
+dc1_cassandra
+dc2_cassandra
+
+
+[dc1_cassandra]
+10.0.0.1 cassandra_compact_weekday=1 cassandra_clearsnapshot_weekday=2 informer=true
+10.0.0.2 cassandra_compact_weekday=2 cassandra_clearsnapshot_weekday=3
+10.0.0.3 cassandra_compact_weekday=3 cassandra_clearsnapshot_weekday=4
+
+[dc2_cassandra]
+10.1.1.1 cassandra_compact_weekday=1 cassandra_clearsnapshot_weekday=2
+10.1.1.2 cassandra_compact_weekday=2 cassandra_clearsnapshot_weekday=3
+10.1.1.3 cassandra_compact_weekday=3 cassandra_clearsnapshot_weekday=4
+
+
+
+[dc1_cassandra:vars]
+dc=dc1
+rack=rack1
+cassandra_compact_start_minute=0
+cassandra_compact_start_hour=2
+
+cassandra_clearsnapshot_start_minute=0
+cassandra_clearsnapshot_start_hour=2
+
+[dc2_cassandra:vars]
+
+dc=dc2
+rack=rack2
+cassandra_compact_start_minute=0
+cassandra_compact_start_hour=2
+
+cassandra_clearsnapshot_start_minute=0
+cassandra_clearsnapshot_start_hour=2

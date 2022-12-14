@@ -1,0 +1,121 @@
+---
+- name: Create config folder {{ medusa_config_dir }}
+  file:
+    path: "{{ medusa_config_dir }}"
+    state: directory
+
+- name: Create log folder {{ medusa_log_dir }}
+  file:
+    path: "{{ medusa_log_dir }}"
+    state: directory
+
+- name: Installing medusa
+  pip:
+    name: "cassandra-medusa"
+    version: "{{ cassandra_medusa_version }}"
+
+- name: Installing awscli
+  pip:
+    name: "awscli"
+    version: "1.27.10"
+
+- name: Uploading credentials
+  ini_file:
+    path: "{{ medusa_credentials_file }}"
+    create: yes
+    section: "default"
+    option: "{{ item.key }}"
+    value: "{{ item.value }}"
+  with_dict: "{{ medusa_credentials }}"
+  when: medusa_upload_credentials
+  no_log: true
+
+- name: install boto3
+  pip:
+    executable: pip3
+    name: boto3==1.26.10
+
+- name: Create an empty bucket
+  amazon.aws.aws_s3:
+    bucket: "{{medusa_config.storage.bucket_name}}"
+    s3_url: "https://{{medusa_config.storage.host}}"
+    aws_access_key: "{{ medusa_credentials.aws_access_key_id }}"
+    aws_secret_key: "{{ medusa_credentials.aws_secret_access_key }}"
+    mode: create
+    permission: public-read
+  run_once: true
+
+- name: Failing if storage_provider is not set
+  run_once: true
+  fail:
+    msg: "You must set at least medusa_config.storage.storage_provider"
+  when: medusa_config.storage.storage_provider is undefined or not medusa_config.storage.storage_provider
+
+- name: Update medusa configs
+  ini_file:
+    path: "{{medusa_config_dir}}/medusa.ini"
+    create: yes
+    section: "{{ item.section }}"
+    option: "{{ item.key }}"
+    value: "{{ item.value }}"
+  loop: >-
+    [
+    {% for section, subdict in medusa_config.items() %}
+      {% for key, value in subdict.items() %}
+        {'section': '{{ section }}',
+         'key': '{{ key }}',
+         'value': '{{ value }}'}
+        {% if not loop.last %}
+          ,
+        {% endif %}
+      {% endfor %}
+      {% if not loop.last %}
+        ,
+      {% endif %}
+    {% endfor %}
+    ]
+
+- name: Create cassandra backup cron job entry
+  cron:
+    name: "cassandra backup"
+    user: "root"
+    hour: "{{ cassandra_backup_hour }}"
+    minute: "{{ cassandra_backup_minute }}"
+    job: "/usr/local/bin/medusa backup --backup-name=\"{{ cluster_name }}_`/usr/bin/date +'Year_\\%Y_Month_\\%m_Day_\\%d'`\" --mode=full"
+
+- name: Create purge old backups cron job entry
+  cron:
+    name: "purge old backups"
+    user: "root"
+    hour: "{{ cassandra_backup_hour }}"
+    minute: "{{ cassandra_backup_minute }}"
+    job: "/usr/local/bin/medusa purge"
+
+- name: Check atleast one server have informer role
+  set_fact:
+    informer_set: "{{ ansible_play_hosts | map('extract', hostvars, 'informer') | list }}"
+  run_once: true
+
+- name: Fail when informer is undefined
+  fail:
+    msg: "Определите переменную informer=true для одного сервера, что бы получать уведомления"
+  when: '"true" not in informer_set'
+  run_once: true
+
+- name: Copy file with owner and permissions
+  copy:
+    src: files/informer.py
+    dest: /opt/cassandra/informer.py
+    owner: cassandra
+    group: cassandra
+    mode: "0644"
+  when: informer is defined and informer == "true"
+
+- name: Create cassandra backup check and inform cron job entry
+  cron:
+    name: "cassandra backup check and inform"
+    user: "root"
+    hour: "{{ backup_informer_hour }}"
+    minute: "{{ backup_informer_minute }}"
+    job: "/usr/bin/python3 /opt/cassandra/informer.py --n \"{{ cluster_name }}_`/usr/bin/date +'Year_\\%Y_Month_\\%m_Day_\\%d'`\" --c \"{{time_channel}}\" --u \"{{ medusa_duty_user }}\""
+  when: informer is defined and informer == "true"

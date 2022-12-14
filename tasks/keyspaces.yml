@@ -1,0 +1,17 @@
+---
+- name: Ensure cassandra started
+  systemd:
+    name: cassandra
+    state: started
+
+- name: Apply keyspaces configuration
+  register: cas_config
+  run_once: true
+  cassandra_keyspaces:
+    keyspaces_dict: "{{ cassandra_keyspaces }}"
+    users_dict: "{{ cassandra_users_manage }}"
+    reaper_dict: "{{ cassandra_reaper }}"
+    login_hosts: "{{ login_hosts | default(ansible_default_ipv4.address) }}"
+    login_port: "{{ cassandra_port | default('9042') }}"
+    request_timeout: "{{ cassandra_role_request_timeout }}"
+

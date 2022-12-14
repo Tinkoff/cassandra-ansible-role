@@ -1,0 +1,87 @@
+host_env: prod
+
+java_home: /opt/jdk
+java_version: "8u291"
+
+#network-checker
+ports_to_check:
+  - 9042
+  - 7000
+
+# Medusa
+medusa_credentials:
+  aws_access_key_id: "xxx"
+  aws_secret_access_key: "yyy"
+
+medusa_duty_user: "@sreduty"
+
+cassandra_backup_hour: 00
+cassandra_backup_minute: 11
+backup_informer_hour: 00
+backup_informer_minute: 16
+
+#Cassandra
+cassandra_version: 3.11.13
+cluster_name: "common-test-cas"
+cassandra_port: "9042"
+login_hosts: "{{ ansible_play_hosts }}"
+cassandra_root_directory: "/opt/cassandra"
+data_file_directories: "{{ cassandra_root_directory }}/data"
+hints_directory: "{{ cassandra_root_directory }}/hints"
+commitlog_directory: "{{ cassandra_root_directory }}/commitlog"
+saved_caches_directory: "{{ cassandra_root_directory }}/data/saved_caches"
+prepared_statements_cache_size_mb: 50
+enable_heapdump: false
+hints_compression_class_name: "LZ4Compressor"
+
+commitlog_compression_class_name: "LZ4Compressor"
+
+cassandra_xms_size: 4G
+cassandra_xmx_size: 4G
+commitlog_segment_size_in_mb: 64
+
+cassandra_custom_config_opt: |
+  -XX:MaxGCPauseMillis=300
+  -XX:+UnlockDiagnosticVMOptions
+  -XX:+UnlockExperimentalVMOptions
+  -XX:ParGCCardsPerStrideChunk=4096
+  -XX:G1ReservePercent=20
+  -XX:G1MaxNewSizePercent=30
+  -XX:InitiatingHeapOccupancyPercent=35
+  -Dcassandra.max_queued_native_transport_requests=3072
+
+
+#Create cassandra users
+cassandra_users_manage:
+    cassandra:
+        password: "cassandra"
+        is_superuser: true
+        can_login: true
+        state: present
+    test:
+        password: "test"
+        is_superuser: false
+        can_login: true
+        state: present
+
+
+
+#Assigning permissions to groups
+cassandra_users_permissions:
+    test:
+        - privilege: "SELECT"
+          resource_name: "KEYSPACE test_keyspace"
+          state: present
+        - privilege: "MODIFY"
+          resource_name: "KEYSPACE test_keyspace"
+          state: present
+
+#Create cassandra keyspace
+cassandra_keyspaces:
+    test_keyspace:
+        replication_class: "NetworkTopologyStrategy"
+        datacenter:
+            dc1: 3
+            dc2: 3
+            dc3: 3
+        state: present

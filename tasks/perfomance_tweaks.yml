@@ -1,0 +1,57 @@
+---
+- name: Remove swapfile from /etc/fstab
+  mount:
+    name: swap
+    fstype: swap
+    state: absent
+
+- name: Disable swap
+  command: swapoff -a
+  when: ansible_swaptotal_mb > 0
+
+- name: Create systemctl config for cassandra
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    sysctl_file: /etc/sysctl.d/55-cassandra.conf
+  with_items:
+    - {name: 'net.ipv4.tcp_keepalive_time', value: '60'}
+    - {name: 'net.ipv4.tcp_keepalive_probes', value: '3'}
+    - {name: 'net.ipv4.tcp_keepalive_intvl', value: '10'}
+    - {name: 'net.core.rmem_max', value: '16777216'}
+    - {name: 'net.core.wmem_max', value: '16777216'}
+    - {name: 'net.core.rmem_default', value: '16777216'}
+    - {name: 'net.core.wmem_default', value: '16777216'}
+    - {name: 'net.core.optmem_max', value: '40960'}
+    - {name: 'net.ipv4.tcp_rmem', value: '4096 87380 16777216'}
+    - {name: 'net.ipv4.tcp_wmem', value: '4096 65536 16777216'}
+    - {name: 'vm.max_map_count', value: '1048575'}
+
+- name: Change limits
+  pam_limits:
+    dest: "/etc/security/limits.d/cassandra.conf"
+    domain: cassandra
+    limit_type: '-'
+    limit_item: "{{ item.limit_item }}"
+    value: "{{ item.value }}"
+    use_max: true
+  with_items:
+    - {limit_item: 'memlock', value: 'unlimited'}
+    - {limit_item: 'nofile', value: '100000'}
+    - {limit_item: 'nproc', value: '32768'}
+    - {limit_item: 'as', value: 'unlimited'}
+
+- name: Change limits
+  pam_limits:
+    dest: "/etc/security/limits.d/cassandra.conf"
+    domain: root
+    limit_type: '-'
+    limit_item: "{{ item.limit_item }}"
+    value: "{{ item.value }}"
+    use_max: true
+  with_items:
+    - {limit_item: 'memlock', value: 'unlimited'}
+    - {limit_item: 'nofile', value: '100000'}
+    - {limit_item: 'nproc', value: '32768'}
+    - {limit_item: 'as', value: 'unlimited'}

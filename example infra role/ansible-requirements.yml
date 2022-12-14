@@ -1,0 +1,10 @@
+---
+- src: ssh://git@galaxy.domain.com:7999/ansible-galaxy-roles/cassandra.git
+  version: "v1.0.0"
+  scm: git
+  name: cassandra
+
+- src: git+ssh://git@galaxy.domain.com:7999/ansible-galaxy-roles/java.git
+  version: "v1.0.0"
+  scm: git
+  name: java

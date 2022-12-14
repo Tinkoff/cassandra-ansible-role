@@ -1,0 +1,5 @@
+*.retry
+ansible.cfg
+roles_galaxy/
+.idea/
+.vault_pass.txt

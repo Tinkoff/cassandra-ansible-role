@@ -1,0 +1,157 @@
+---
+- name: Install cassandra from repo
+  apt:
+    deb: https://debian-repo.domain.com/repository/dist/cassandra/cassandra_{{ cassandra_version }}_all.deb
+  register: cassandra_installed
+
+- name: Create data directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: cassandra
+    group: cassandra
+    mode: 0755
+    recurse: no
+  notify: Remove useless packages from the cache and dependencies that are no longer required
+  with_items:
+    - "{{ data_file_directories }}"
+    - "{{ hints_directory }}"
+    - "{{ commitlog_directory }}"
+    - "{{ saved_caches_directory }}"
+
+- name: Set cluster_seeds var
+  set_fact: cluster_seeds="{{ ansible_play_hosts | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | join(',') }}"
+
+- name: Update cassandra configs
+  template:
+    src: etc/cassandra/{{ item }}.j2
+    dest: "/etc/cassandra/{{ item }}"
+  with_items:
+    - cassandra.yaml
+    - cassandra-env.sh
+    - cassandra-rackdc.properties
+    - jvm.options
+    - logback.xml
+
+- name: Add JAVA_HOME
+  lineinfile:
+    path: /usr/share/cassandra/cassandra.in.sh
+    line: "JAVA_HOME={{ java_home }}"
+    state: present
+
+- name: Create cassandra_compact cron job entry
+  cron:
+    name: "nodetool compact"
+    user: "root"
+    weekday: "{{ cassandra_compact_weekday }}"
+    minute: "{{ cassandra_compact_start_minute }}"
+    hour: "{{ cassandra_compact_start_hour }}"
+    job: "{{ cassandra_compact_cron_cmd }}"
+  tags:
+    - cron_compact
+
+# Рекомендуется делать через сутки после компакшена
+- name: Create nodetool clearsnapshot cron job entry
+  cron:
+    name: "nodetool clearsnapshot"
+    user: "root"
+    weekday: "{{ cassandra_clearsnapshot_weekday }}"
+    minute: "{{ cassandra_clearsnapshot_start_minute }}"
+    hour: "{{ cassandra_clearsnapshot_start_hour }}"
+    job: "/usr/bin/nodetool clearsnapshot"
+
+#Python 2
+- name: install python-setuptools
+  apt:
+    name: python-setuptools
+  when: ansible_distribution_major_version|int < 20
+
+- name: install python-pip
+  apt:
+    name: python-pip
+  when: ansible_distribution_major_version|int < 20
+
+- name: update python-setuptools
+  pip:
+    name: setuptools
+    version: 44.1.1
+    state: forcereinstall
+  changed_when: false
+  when: ansible_distribution_major_version|int < 20
+
+- name: update python-pip
+  pip:
+    name: pip
+    version: 20.3.4
+    state: forcereinstall
+  changed_when: false
+  when: ansible_distribution_major_version|int < 20
+
+- name: install cython
+  pip:
+    name: cython
+  when: ansible_distribution_major_version|int < 20
+
+- name: install cassandra-driver takes about 5-7 minutes
+  pip:
+    name: cassandra-driver
+  when: ansible_distribution_major_version|int < 20
+
+- name: install bcrypt-driver
+  pip:
+    name: bcrypt
+    version: 3.1.7
+  when: ansible_distribution_major_version|int < 20
+
+#Python3
+- name: install python-setuptools
+  apt:
+    name: python3-setuptools
+  when: ansible_distribution_major_version|int >= 20
+
+- name: install python-pip
+  apt:
+    name: python3-pip
+  when: ansible_distribution_major_version|int >= 20
+
+- name: install cython
+  pip:
+    executable: pip3
+    name: cython
+  when: ansible_distribution_major_version|int >= 20
+
+- name: install cassandra-driver takes about 5-7 minutes
+  pip:
+    executable: pip3
+    name: cassandra-driver
+  when: ansible_distribution_major_version|int >= 20
+
+- name: install bcrypt-driver
+  pip:
+    executable: pip3
+    name: bcrypt
+  when: ansible_distribution_major_version|int >= 20
+
+# JEMalloc is an enhanced memory allocator
+- name: Install jemalloc library from repo
+  apt:
+    name: libjemalloc1
+    state: present
+  when: ansible_distribution_major_version|int <= 20
+
+- name: Install jemalloc library from repo
+  apt:
+    name: libjemalloc2
+    state: present
+  when: ansible_distribution_major_version|int >= 20
+
+- name: Create symbolic link for libjemalloc2 (fix for ubuntu 20.04)
+  file:
+    src: /usr/lib/x86_64-linux-gnu/libjemalloc.so.2
+    dest: /usr/local/lib/libjemalloc.so
+    state: link
+  when: ansible_distribution_major_version|int >= 20
+
+#Post install
+- import_tasks: post_install.yml
+  when: cassandra_installed.changed

@@ -1,0 +1,12 @@
+---
+- name: Check fqdn hostname can be resolved
+  shell: hostname -f
+  register: fqdn_resolve
+  changed_when: false
+  ignore_errors: True
+  no_log: True
+
+- name: Fail the play, if fqdn hostname cannot be resolved
+  fail:
+    msg: "Could not resolv self hostname, repair it, then check it with command 'hostname -f' \n {{ fqdn_resolve.stderr }}"
+  when: "0 != fqdn_resolve.rc"

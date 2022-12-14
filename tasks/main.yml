@@ -1,0 +1,28 @@
+---
+- import_tasks: pre_install.yml
+
+- import_tasks: perfomance_tweaks.yml
+
+- import_tasks: install.yml
+
+- import_tasks: install_medusa_ubuntu.yml
+  when: 
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_major_version|int >= 20
+  tags:
+    - never
+    - backup
+
+- import_tasks: fix_system_auth_keyspace.yml
+
+- import_tasks: logs_configuration.yml
+
+- import_tasks: keyspaces.yml
+  tags:
+    - never
+    - keyspaces
+
+- import_tasks: users.yml
+  tags:
+    - never
+    - users

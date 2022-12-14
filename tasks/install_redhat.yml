@@ -1,0 +1,139 @@
+---
+- name: Install cassandra from repo
+  yum:
+    name: https://rpm-repo.domain.com/repository/rpm/cassandra/cassandra-{{ cassandra_version }}.noarch.rpm
+  register: cassandra_installed
+
+- name: Create data directory
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: cassandra
+    group: cassandra
+    mode: 0755
+    recurse: no
+  with_items:
+    - "{{ data_file_directories }}"
+    - "{{ hints_directory }}"
+    - "{{ commitlog_directory }}"
+    - "{{ saved_caches_directory }}"
+
+- name: Set cluster_seeds var
+  set_fact: cluster_seeds="{{ ansible_play_hosts | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | join(',') }}"
+
+- name: Update cassandra configs
+  template:
+    src: etc/cassandra/{{ item }}.j2
+    dest: "/etc/cassandra/conf/{{ item }}"
+  with_items:
+    - cassandra.yaml
+    - cassandra-env.sh
+    - cassandra-rackdc.properties
+    - jvm.options
+    - logback.xml
+
+- name: Add JAVA_HOME
+  lineinfile:
+    path: /usr/share/cassandra/cassandra.in.sh
+    line: "JAVA_HOME={{ java_home }}"
+    state: present
+
+- name: Create cassandra_compact cron job entry
+  cron:
+    name: "nodetool compact"
+    user: "root"
+    weekday: "{{ cassandra_compact_weekday }}"
+    minute: "{{ cassandra_compact_start_minute }}"
+    hour: "{{ cassandra_compact_start_hour }}"
+    job: "{{ cassandra_compact_cron_cmd }}"
+  tags:
+    - cron_compact
+
+# Рекомендуется делать через сутки после компакшена
+- name: Create nodetool clearsnapshot cron job entry
+  cron:
+    name: "nodetool clearsnapshot"
+    user: "root"
+    weekday: "{{ cassandra_clearsnapshot_weekday }}"
+    minute: "{{ cassandra_clearsnapshot_start_minute }}"
+    hour: "{{ cassandra_clearsnapshot_start_hour }}"
+    job: "/usr/bin/nodetool clearsnapshot"
+
+#Python 2 is default in CentOS/RedHat 7
+- name: install python-setuptools
+  yum:
+    name: python-setuptools
+    state: present
+  when: ansible_distribution_major_version|int == 7
+
+- name: install python-pip
+  yum:
+    name: python-pip
+    state: present
+  when: ansible_distribution_major_version|int == 7
+
+- name: update python-pip
+  pip:
+    name: pip
+    version: 20.3.4
+    state: forcereinstall
+  changed_when: false
+  when: ansible_distribution_major_version|int == 7
+
+- name: install cython
+  pip:
+    name: cython
+  when: ansible_distribution_major_version|int == 7
+
+- name: install cassandra-driver takes about 5-7 minutes
+  pip:
+    name: cassandra-driver
+  when: ansible_distribution_major_version|int == 7
+
+- name: install bcrypt-driver
+  pip:
+    name: bcrypt
+    version: 3.1.7
+  when: ansible_distribution_major_version|int == 7
+
+#Python3 not tested
+#- name: install python-setuptools
+#  yum:
+#    name: python3-setuptools
+#  when: ansible_distribution_major_version|int >= 8
+#
+#- name: install python-pip
+#  yum:
+#    name: python3-pip
+#  when: ansible_distribution_major_version|int >= 8
+#
+#- name: install cython
+#  pip:
+#    executable: pip3
+#    name: cython
+#  when: ansible_distribution_major_version|int >= 8
+#
+#- name: install cassandra-driver takes about 5-7 minutes
+#  pip:
+#    executable: pip3
+#    name: cassandra-driver
+#  when: ansible_distribution_major_version|int >= 8
+#
+#- name: install bcrypt-driver
+#  pip:
+#    executable: pip3
+#    name: bcrypt
+#  when: ansible_distribution_major_version|int >= 8
+
+# JEMalloc is an enhanced memory allocator
+- name: Install jemalloc library from repo
+  yum:
+    name: jemalloc
+    state: present
+
+- name: force Systemd to reread configs
+  systemd: daemon_reload=yes
+
+#Post install
+- import_tasks: post_install.yml
+  when: cassandra_installed.changed

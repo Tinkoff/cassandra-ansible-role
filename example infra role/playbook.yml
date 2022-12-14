@@ -1,0 +1,9 @@
+#! /usr/bin/env ansible-playbook
+
+---
+- name: Setup machine and run cassandra
+  hosts: cassandra
+  become: true
+  roles:
+    - {role: java}
+    - {role: cassandra}

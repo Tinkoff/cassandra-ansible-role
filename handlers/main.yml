@@ -1,0 +1,15 @@
+---
+
+- name: Remove useless packages from the cache and dependencies that are no longer required
+  apt:
+    autoclean: true
+    autoremove: true
+
+- name: restart cassandra
+  systemd:
+    name: cassandra
+    state: restarted
+
+- name: daemon reload
+  systemd:
+    daemon_reload: true
